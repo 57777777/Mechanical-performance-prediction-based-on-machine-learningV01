@@ -1,0 +1,143 @@
+import warnings
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from xgboost import XGBRegressor
+from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.linear_model import LinearRegression
+
+r2_mse_list=[]
+def R2_MSE(model_name, y_train,  y_train_predict,y_test,y_test_predict):
+    #真实值 预测值
+    # 1     2
+    # 3     5
+    train_mse = mean_squared_error(y_train, y_train_predict)
+    train_r2 = r2_score(y_train, y_train_predict)
+
+    test_mse = mean_squared_error(y_test, y_test_predict)
+    test_r2 = r2_score(y_test, y_test_predict)
+    r2_mse = (str(model_name), abs(round(train_mse, 2)), abs(round(train_r2, 2)),
+              abs(round(test_mse, 2)), abs(round(test_r2, 2)))
+    print(r2_mse)
+    r2_mse_list.append(r2_mse)
+    print(r2_mse_list)
+# 线性回归
+def linear_predict(x_train, x_test, y_train, y_test):
+    # 1.忽略信息
+    warnings.filterwarnings("ignore")
+    #2.建立简单的线性模型
+    model = LinearRegression()
+
+    #3.训练、拟合模型
+    model.fit(x_train, y_train)
+
+    #4.10折交叉验证
+    cv_scores = cross_val_score(model, x_train, y_train, cv=10, scoring='r2')
+    print(f"交叉验证 R² 分数: {cv_scores}")
+    print(f"平均 R²: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
+
+    #5. 使用模型对训练集 测试集进行预测
+    y_train_predict = model.predict(x_train)
+    y_test_predict = model.predict(x_test)
+
+    print(y_test_predict)
+    np.savetxt('linear_predictions.txt', y_test_predict, fmt='%.2f', delimiter='/t')
+
+    #6.衡量模型的性能
+    R2_MSE('Linear Regression', y_train, y_train_predict, y_test, y_test_predict)
+
+def XGBoost_predict(x_train, x_test, y_train, y_test):
+    #1.忽略
+    warnings.filterwarnings("ignore")
+
+    #######################网格搜索#################################
+    #2.建立简单的XGBoost模型
+    model = XGBRegressor()
+
+    #3.网格搜索、交叉验证
+    params = {
+        "n_estimators": [10, 50, 100, 150, 200],
+        "learning_rate":[0.01, 0.05, 0.1]
+    }
+    gridsearch = GridSearchCV(
+        model,
+        params,
+        #交叉验证
+        cv=10,
+        verbose=2
+    )
+    gridsearch.fit(x_train, y_train)
+    print('The best parameter = ', gridsearch.best_params_)
+    model = XGBRegressor(n_estimators=gridsearch.best_params_["n_estimators"],learning_rate=gridsearch.best_params_["learning_rate"])
+    #######################网格搜索#################################
+    #4.拟合
+    model.fit(x_train, y_train)
+    #5.预测
+    y_train_predict = model.predict(x_train)
+    y_test_predict = model.predict(x_test)
+    np.savetxt('XGBoost_predictions.txt', y_test_predict, fmt='%.2f', delimiter='/t')
+    #6.衡量模型性能
+    R2_MSE('XGBoost Regression', y_train, y_train_predict, y_test, y_test_predict)
+
+def RF_predict(x_train, x_test, y_train, y_test):
+    #1.
+    warnings.filterwarnings("ignore")
+    #######################网格搜索#################################
+    # 2.建立简单的 随机森林回归模型
+    model = RandomForestRegressor()
+
+    #3. 网格搜索、交叉验证
+    params = {
+        'n_estimators': [50, 100],      # 树的数量
+        'max_depth': [10, 20]        # 最大深度
+    }
+
+    gridsearch = GridSearchCV(
+        model,
+        params,
+        cv=10,
+        verbose=2
+    )
+    gridsearch.fit(x_train, y_train)
+    print('The best parameter = ', gridsearch.best_params_)
+    model = RandomForestRegressor(n_estimators=gridsearch.best_params_["n_estimators"],max_depth=gridsearch.best_params_["max_depth"])
+    #######################网格搜索#################################
+    #4.模型拟合
+    model.fit(x_train,y_train)
+    #5.使用模型对训练集 测试集进行预测
+    y_train_predict = model.predict(x_train)
+    y_test_predict = model.predict(x_test)
+
+    np.savetxt('RF_predictions.txt', y_test_predict, fmt='%.2f', delimiter='/t')
+
+    #6.衡量模型性能
+    R2_MSE('Random Forest Regression grid', y_train, y_train_predict, y_test,y_test_predict)
+
+if __name__ == '__main__':
+
+    #1.读取数据
+    train_data = pd.read_excel("D:\\ML\\Code\\dataset - 副本.xlsx")
+    print(train_data)
+
+    #2.训练集、测试集拆分
+    x_train = train_data.drop(columns=['Youngs_Moudle', 'yield_stress_value', 'toughness']).loc[:979]
+    y_train = train_data['yield_stress_value'].loc[:979]
+    x_test = train_data.drop(columns=['Youngs_Moudle', 'yield_stress_value', 'toughness']).loc[980:]
+    y_test = train_data['yield_stress_value'].loc[980:]
+    print(y_test)
+
+    #3.建模、计算
+    print("===============线性回归计算中===============")
+    linear_predict(x_train, x_test, y_train, y_test)
+
+    print("===============RF计算中===============")
+    RF_predict(x_train, x_test, y_train, y_test)
+
+    print("===============XGBoost计算中===============")
+    XGBoost_predict(x_train, x_test, y_train, y_test)
+
+    #4.打印结果
+    print("=========================================")
+    _r2_mse = pd.DataFrame(data=r2_mse_list, columns=['Model', 'train_MSE','train_R2','test_MSE','test_R2'])
+    print(_r2_mse)
