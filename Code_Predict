@@ -121,10 +121,10 @@ if __name__ == '__main__':
     print(train_data)
 
     #2.训练集、测试集拆分
-    x_train = train_data.drop(columns=['Youngs_Moudle', 'yield_stress_value', 'toughness']).loc[:979]
-    y_train = train_data['yield_stress_value'].loc[:979]
-    x_test = train_data.drop(columns=['Youngs_Moudle', 'yield_stress_value', 'toughness']).loc[980:]
-    y_test = train_data['yield_stress_value'].loc[980:]
+    x_train = train_data.drop(columns=['toughness']).loc[:699]
+    y_train = train_data['toughness'].loc[:699]
+    x_test = train_data.drop(columns=['toughness']).loc[700:]
+    y_test = train_data['toughness'].loc[700:]
     print(y_test)
 
     #3.建模、计算
